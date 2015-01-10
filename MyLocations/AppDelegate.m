@@ -7,8 +7,16 @@
 //
 
 #import "AppDelegate.h"
+#import <CoreData/CoreData.h>
+#import "CurrentLocationViewController.h"
+#import "LocationsViewController.h"
+#import "MapViewController.h"
 
 @interface AppDelegate ()
+
+@property(nonatomic, strong)NSManagedObjectContext *managedObjectContext;
+@property(nonatomic, strong)NSManagedObjectModel *managedObjectModel;
+@property(nonatomic, strong)NSPersistentStoreCoordinator *persistentStoreCoordinator;
 
 @end
 
@@ -17,6 +25,28 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    
+    UITabBarController *tabBarController = (UITabBarController *)self.window.rootViewController;
+    
+    CurrentLocationViewController *currentLocationViewController = (CurrentLocationViewController *)((UINavigationController *) tabBarController.viewControllers[0]).topViewController;
+    
+    currentLocationViewController.managedObjectContext = self.managedObjectContext;
+    
+    UINavigationController *navigationController = (UINavigationController *)[[tabBarController viewControllers] objectAtIndex:1];
+    
+    //locations view
+    LocationsViewController *locationsViewController = (LocationsViewController *)[[navigationController viewControllers] objectAtIndex:0];
+    
+    locationsViewController.managedObjectContext = self.managedObjectContext;
+    
+    //map view
+    UINavigationController *mapNavigationController = (UINavigationController *)[[tabBarController viewControllers]objectAtIndex:2];
+    
+    MapViewController *mapViewController = (MapViewController*)mapNavigationController.topViewController;
+    
+    mapViewController.managedObjectContext = self.managedObjectContext;
+    
+    
     return YES;
 }
 
@@ -40,6 +70,73 @@
 
 - (void)applicationWillTerminate:(UIApplication *)application {
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+}
+
+#pragma mark - Core Data
+
+-(NSManagedObjectModel*)managedObjectModel{
+
+
+    if (_managedObjectModel == nil) {
+        NSString *modelPath = [[NSBundle mainBundle]pathForResource:@"DataModel" ofType:@"momd"];
+        NSURL *modelURL = [NSURL fileURLWithPath:modelPath];
+        
+        _managedObjectModel = [[NSManagedObjectModel alloc]initWithContentsOfURL:modelURL];
+        
+    }
+    
+    return _managedObjectModel;
+}
+
+-(NSString*)documentsDirectory{
+
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    
+    NSString *documentsDirectory = [paths firstObject];
+    
+    return documentsDirectory;
+
+}
+
+-(NSString*)dataStorePath{
+    return [[self documentsDirectory]stringByAppendingPathComponent:@"DataStore.sqlite"];
+    
+    }
+
+-(NSPersistentStoreCoordinator*)persistentStoreCoordinator{
+
+    if (_persistentStoreCoordinator==nil) {
+        NSURL *storeURL = [NSURL fileURLWithPath:[self dataStorePath]];
+        
+        _persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc]initWithManagedObjectModel:self.managedObjectModel];
+        
+        NSError *error;
+        
+        if (![_persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:nil error:&error]) {
+            NSLog(@"Error adding persistent store %@, %@", error, [error userInfo]);
+            
+            NSLog(@"path: %@", storeURL);
+            
+            abort();
+        }
+    }
+    
+    return _persistentStoreCoordinator;
+
+}
+
+-(NSManagedObjectContext*)managedObjectContext{
+
+    if (_managedObjectContext == nil) {
+        NSPersistentStoreCoordinator *coordinator = self.persistentStoreCoordinator;
+        
+        if (coordinator != nil) {
+            _managedObjectContext = [[NSManagedObjectContext alloc]init];
+            [_managedObjectContext setPersistentStoreCoordinator:coordinator];
+        }
+    }
+    
+    return _managedObjectContext;
 }
 
 @end
